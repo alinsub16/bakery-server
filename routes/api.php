@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BreadController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -23,6 +24,8 @@ Route::prefix('v1')->group(function () {
         // Readable by any authenticated role
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/categories/{category}', [CategoryController::class, 'show']);
+        Route::get('/breads', [BreadController::class, 'index']);
+        Route::get('/breads/{bread}', [BreadController::class, 'show']);
 
         // Mutations restricted to admin/manager
         Route::middleware('role:admin,manager')->group(function () {
@@ -30,6 +33,11 @@ Route::prefix('v1')->group(function () {
             Route::put('/categories/{category}', [CategoryController::class, 'update']);
             Route::patch('/categories/{category}/deactivate', [CategoryController::class, 'deactivate']);
             Route::patch('/categories/{category}/activate', [CategoryController::class, 'activate']);
+
+            Route::post('/breads', [BreadController::class, 'store']);
+            Route::put('/breads/{bread}', [BreadController::class, 'update']);
+            Route::patch('/breads/{bread}/deactivate', [BreadController::class, 'deactivate']);
+            Route::patch('/breads/{bread}/activate', [BreadController::class, 'activate']);
         });
     });
 });
