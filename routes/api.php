@@ -3,9 +3,11 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BreadController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\DailyInventoryController;
 use App\Http\Controllers\Api\V1\DailyProductionController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\SalesReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -28,6 +30,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/breads', [BreadController::class, 'index']);
         Route::get('/breads/{bread}', [BreadController::class, 'show']);
         Route::get('/production', [DailyProductionController::class, 'index']);
+        Route::get('/inventory', [DailyInventoryController::class, 'index']);
+        Route::get('/inventory/opening-stock/{bread}', [DailyInventoryController::class, 'openingStock']);
+
+        Route::get('/sales/daily-summary', [SalesReportController::class, 'dailySummary']);
+        Route::get('/sales/range', [SalesReportController::class, 'range']);
+        Route::get('/sales/by-bread', [SalesReportController::class, 'byBread']);
+        Route::get('/sales/monthly', [SalesReportController::class, 'monthly']);
+        Route::get('/sales/yearly', [SalesReportController::class, 'yearly']);
 
         // Mutations restricted to admin/manager
         Route::middleware('role:admin,manager')->group(function () {
@@ -42,10 +52,15 @@ Route::prefix('v1')->group(function () {
             Route::patch('/breads/{bread}/activate', [BreadController::class, 'activate']);
 
             Route::put('/production/{production}', [DailyProductionController::class, 'update']);
+            Route::put('/inventory/{inventory}', [DailyInventoryController::class, 'update']);
         });
         // Production submission: admin, manager, baker, and inventory_clerk per your call
         Route::middleware('role:admin,manager,baker,inventory_clerk')->group(function () {
             Route::post('/production', [DailyProductionController::class, 'store']);
+        });
+
+        Route::middleware('role:admin,manager,inventory_clerk')->group(function () {
+            Route::post('/inventory', [DailyInventoryController::class, 'store']);
         });
     });
 });
