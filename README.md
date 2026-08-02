@@ -1,58 +1,205 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Bakery Inventory Management System — Backend API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A production-ready backend for managing a bakery's daily production, closing inventory, sales, and reporting — built with Laravel 12, PHP 8.3+, and PostgreSQL.
 
-## About Laravel
+## Business Flow
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+Opening Stock  = Yesterday's Closing Stock + Today's Production
+Sold Quantity  = Opening Stock − Closing Stock
+Revenue        = Sold Quantity × Bread Selling Price (locked in at closing time)
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+- `sold_quantity` and `revenue` are always system-calculated and never accepted as direct input.
+- Closing stock automatically becomes the next day's opening remaining stock.
+- Production and closing entries are limited to **today only** — no backdating.
+- Inventory history is never deleted. Corrections are handled through controlled, audit-logged update endpoints.
 
-## Contributing
+## Tech Stack
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| Layer | Technology |
+|---|---|
+| Framework | Laravel 12 |
+| Language | PHP 8.3+ |
+| Database | PostgreSQL |
+| Auth | Laravel Sanctum (token-based) |
+| Frontend (planned) | React + TypeScript + Tailwind |
 
-## Code of Conduct
+## Getting Started
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+# Install dependencies
+composer install
 
-## Security Vulnerabilities
+# Environment setup
+cp .env.example .env
+php artisan key:generate
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Configure your PostgreSQL connection in .env
+# DB_CONNECTION=pgsql
+# DB_HOST=127.0.0.1
+# DB_PORT=5432
+# DB_DATABASE=bakery_api
+# DB_USERNAME=your_username
+# DB_PASSWORD=your_password
 
-## License
+# Set your frontend origin for CORS
+# FRONTEND_URL=http://localhost:5173
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Run migrations
+php artisan migrate
+
+# Seed baseline roles (admin, manager, baker, inventory_clerk)
+php artisan db:seed --class=RoleSeeder
+
+# Publish CORS config if not already present
+php artisan config:publish cors
+
+# Serve the app
+php artisan serve
+```
+
+### Creating your first user (no self-registration endpoint yet)
+
+```bash
+php artisan tinker
+```
+```php
+$user = App\Models\User::create([
+    'name' => 'Admin User',
+    'email' => 'admin@bakery.test',
+    'password' => 'password123',
+]);
+$user->roles()->attach(App\Models\Role::where('name', 'admin')->first());
+```
+
+## Roles
+
+| Role | Description |
+|---|---|
+| `admin` | Full access — user/role management, all mutations, audit log visibility |
+| `manager` | Manages categories/breads, corrects production & inventory entries, views audit log |
+| `baker` | Submits daily production entries |
+| `inventory_clerk` | Submits daily production and closing stock entries |
+
+Every user holds exactly one role at a time.
+
+## Modules Implemented
+
+1. **Authentication** — Sanctum login/logout, token expiration (7 days)
+2. **Roles & Permissions** — role assignment, protected against self-demotion and removing the last admin
+3. **Categories** — CRUD with soft delete, activate/deactivate (no hard delete)
+4. **Bread Management** — CRUD linked to categories, per-bread pricing (`selling_price`, `cost_price`)
+5. **Daily Production** — one entry per bread per day, admin/manager correction with audit trail
+6. **Inventory (Closing Stock)** — auto-calculated opening stock, sold quantity, and revenue; admin/manager correction with audit trail
+7. **Sales Reports** — daily summary, date range, by-bread breakdown, monthly, yearly
+8. **Dashboard** — consolidated summary: today's totals, pending production/closing, low-stock alerts, week-over-week trend
+9. **Activity Logs** — admin/manager-only viewer for all correction and audit events
+10. **Reports** — production vs. sales variance report (identifies consistently overproduced breads)
+
+## Security
+
+- Named rate limiters: `api` (120 req/min per user/IP), `api-writes` (30 req/min, stacked on all mutation routes), `login` (5 attempts/min, keyed by IP + email)
+- Sanctum tokens expire after 7 days
+- CORS restricted to a single configured frontend origin (`FRONTEND_URL`)
+- Security headers middleware (`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`) applied to all API responses
+- Generic, non-enumerating error messages on login
+- **Before deploying:** ensure `APP_ENV=production` and `APP_DEBUG=false` — debug mode exposes full stack traces and file paths in error responses
+
+## API Endpoints
+
+Base URL: `/api/v1`
+
+### Auth
+| Method | Endpoint | Auth |
+|---|---|---|
+| POST | `/login` | Guest |
+| POST | `/logout` | Sanctum |
+| GET | `/me` | Sanctum |
+
+### Roles & Users *(admin only)*
+| Method | Endpoint |
+|---|---|
+| GET | `/roles` |
+| GET | `/users` |
+| PUT | `/users/{user}/role` |
+
+### Categories
+| Method | Endpoint | Auth |
+|---|---|---|
+| GET | `/categories` | any |
+| GET | `/categories/{category}` | any |
+| POST | `/categories` | admin, manager |
+| PUT | `/categories/{category}` | admin, manager |
+| PATCH | `/categories/{category}/activate` | admin, manager |
+| PATCH | `/categories/{category}/deactivate` | admin, manager |
+
+### Breads
+| Method | Endpoint | Auth |
+|---|---|---|
+| GET | `/breads` | any |
+| GET | `/breads/{bread}` | any |
+| POST | `/breads` | admin, manager |
+| PUT | `/breads/{bread}` | admin, manager |
+| PATCH | `/breads/{bread}/activate` | admin, manager |
+| PATCH | `/breads/{bread}/deactivate` | admin, manager |
+
+### Production
+| Method | Endpoint | Auth |
+|---|---|---|
+| GET | `/production` | any |
+| POST | `/production` | admin, manager, baker, inventory_clerk |
+| PUT | `/production/{production}` | admin, manager (same-day only, logged) |
+
+### Inventory
+| Method | Endpoint | Auth |
+|---|---|---|
+| GET | `/inventory` | any |
+| GET | `/inventory/opening-stock/{bread}` | any |
+| POST | `/inventory` | admin, manager, inventory_clerk |
+| PUT | `/inventory/{inventory}` | admin, manager (same-day only, logged) |
+
+### Sales Reports
+| Method | Endpoint |
+|---|---|
+| GET | `/sales/daily-summary` |
+| GET | `/sales/range` |
+| GET | `/sales/by-bread` |
+| GET | `/sales/monthly` |
+| GET | `/sales/yearly` |
+
+### Dashboard
+| Method | Endpoint |
+|---|---|
+| GET | `/dashboard/summary` |
+
+### Activity Logs *(admin, manager only)*
+| Method | Endpoint |
+|---|---|
+| GET | `/activity-logs` |
+
+### Reports
+| Method | Endpoint |
+|---|---|
+| GET | `/reports/production-variance` |
+
+## Testing
+
+All endpoints have been manually verified via Postman/Bruno throughout development. Key rules covered:
+
+- Duplicate production/inventory submissions for the same bread + day → `409`
+- Closing stock exceeding opening stock → `422`
+- Corrections blocked after the entry's day has passed → `403`
+- Role-restricted endpoints reject unauthorized roles → `403`
+- Rate limits return `429` with `Retry-After` once exceeded
+
+Automated test coverage (PHPUnit/Pest) is not yet implemented — recommended as a next step before frontend integration.
+
+## Roadmap
+
+- [ ] Frontend (React + TypeScript + Tailwind)
+- [ ] User self-management / password reset flow
+- [ ] Opening balance / initial stock backfill for system launch
+- [ ] Denied-action logging (403s, failed logins) in activity log
+- [ ] Account lockout after repeated failed logins
+- [ ] Automated test suite
