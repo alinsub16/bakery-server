@@ -16,7 +16,7 @@ class AuthController extends Controller
     {
         $credentials = $request->validated();
 
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::withTrashed()->where('email', $credentials['email'])->first();
 
         // Deliberately identical error for "no such user" and "wrong password"
         // to avoid leaking which emails are registered.

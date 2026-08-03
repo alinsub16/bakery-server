@@ -100,7 +100,7 @@ Every user holds exactly one role at a time.
 ## Security
 
 - Named rate limiters: `api` (120 req/min per user/IP), `api-writes` (30 req/min, stacked on all mutation routes), `login` (5 attempts/min, keyed by IP + email)
-- Sanctum tokens expire after 7 days
+- Sanctum tokens expire after a month
 - CORS restricted to a single configured frontend origin (`FRONTEND_URL`)
 - Security headers middleware (`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`) applied to all API responses
 - Generic, non-enumerating error messages on login

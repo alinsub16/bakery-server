@@ -35,6 +35,7 @@ class CategoryController extends Controller
             'name' => $request->validated('name'),
             'slug' => Category::generateUniqueSlug($request->validated('name')),
             'description' => $request->validated('description'),
+            'is_active' => true,
         ]);
 
         return CategoryResource::make($category);
