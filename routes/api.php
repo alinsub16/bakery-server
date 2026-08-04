@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\ActivityLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BreadController;
+use App\Http\Controllers\Api\V1\BreadOpeningBalanceController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\DailyInventoryController;
 use App\Http\Controllers\Api\V1\DailyProductionController;
@@ -17,27 +18,41 @@ Route::prefix('v1')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])
         ->middleware('throttle:login');
 
+    Route::post('/register', [AuthController::class, 'register'])
+        ->middleware('throttle:login');
+
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
 
+        // ---- Admin: reads (roles, users, pending queue) ----
         Route::middleware('role:admin')->group(function () {
             Route::get('/roles', [RoleController::class, 'index']);
             Route::get('/users', [UserController::class, 'index']);
-            Route::put('/users/{user}/role', [UserController::class, 'updateRole'])
-            ->middleware('throttle:api-writes');
+            Route::get('/users/pending', [UserController::class, 'pending']);
         });
 
-        // admin + manager: audit visibility
+        // ---- Admin: writes (user/role management) ----
+        Route::middleware(['role:admin', 'throttle:api-writes'])->group(function () {
+            Route::post('/users', [UserController::class, 'store']);
+            Route::put('/users/{user}/role', [UserController::class, 'updateRole']);
+            Route::patch('/users/{user}/approve', [UserController::class, 'approve']);
+            Route::patch('/users/{user}/reject', [UserController::class, 'reject']);
+            Route::patch('/users/{user}/deactivate', [UserController::class, 'deactivate']);
+            Route::patch('/users/{id}/activate', [UserController::class, 'activate']);
+        });
+
+        // ---- Admin + Manager: audit visibility ----
         Route::middleware('role:admin,manager')->group(function () {
             Route::get('/activity-logs', [ActivityLogController::class, 'index']);
         });
 
-        // Readable by any authenticated role
+        // ---- Readable by any authenticated role ----
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/categories/{category}', [CategoryController::class, 'show']);
         Route::get('/breads', [BreadController::class, 'index']);
         Route::get('/breads/{bread}', [BreadController::class, 'show']);
+        Route::get('/breads/{bread}/opening-balance', [BreadOpeningBalanceController::class, 'show']);
         Route::get('/production', [DailyProductionController::class, 'index']);
         Route::get('/inventory', [DailyInventoryController::class, 'index']);
         Route::get('/inventory/opening-stock/{bread}', [DailyInventoryController::class, 'openingStock']);
@@ -52,8 +67,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/reports/production-variance', [ProductionVarianceController::class, 'index']);
 
-        // Mutations restricted to admin/manager
-        Route::middleware('role:admin,manager')->group(function () {
+        // ---- Admin + Manager: mutations on categories, breads, corrections, opening balance ----
+        Route::middleware(['role:admin,manager', 'throttle:api-writes'])->group(function () {
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::put('/categories/{category}', [CategoryController::class, 'update']);
             Route::patch('/categories/{category}/deactivate', [CategoryController::class, 'deactivate']);
@@ -66,13 +81,17 @@ Route::prefix('v1')->group(function () {
 
             Route::put('/production/{production}', [DailyProductionController::class, 'update']);
             Route::put('/inventory/{inventory}', [DailyInventoryController::class, 'update']);
+
+            Route::post('/breads/{bread}/opening-balance', [BreadOpeningBalanceController::class, 'store']);
         });
-        // Production submission: admin, manager, baker, and inventory_clerk per your call
-        Route::middleware('role:admin,manager,baker,inventory_clerk')->group(function () {
+
+        // ---- Production submission: admin, manager, baker, inventory_clerk ----
+        Route::middleware(['role:admin,manager,baker,inventory_clerk', 'throttle:api-writes'])->group(function () {
             Route::post('/production', [DailyProductionController::class, 'store']);
         });
 
-        Route::middleware('role:admin,manager,inventory_clerk')->group(function () {
+        // ---- Inventory (closing stock) submission: admin, manager, inventory_clerk ----
+        Route::middleware(['role:admin,manager,inventory_clerk', 'throttle:api-writes'])->group(function () {
             Route::post('/inventory', [DailyInventoryController::class, 'store']);
         });
     });

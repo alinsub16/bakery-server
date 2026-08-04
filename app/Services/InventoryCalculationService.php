@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Bread;
+use App\Models\BreadOpeningBalance;
 use App\Models\DailyInventory;
 use App\Models\DailyProduction;
 use Illuminate\Support\Carbon;
@@ -16,6 +17,8 @@ class InventoryCalculationService
     {
         $yesterday = Carbon::parse($date)->subDay()->toDateString();
 
+        $hasAnyPriorClosing = DailyInventory::where('bread_id', $breadId)->exists();
+
         $yesterdayClosing = DailyInventory::where('bread_id', $breadId)
             ->where('inventory_date', $yesterday)
             ->value('closing_stock') ?? 0;
@@ -24,7 +27,12 @@ class InventoryCalculationService
             ->where('production_date', $date)
             ->value('quantity_produced') ?? 0;
 
-        return $yesterdayClosing + $todayProduction;
+        $openingBalance = 0;
+        if (! $hasAnyPriorClosing) {
+            $openingBalance = BreadOpeningBalance::where('bread_id', $breadId)->value('quantity') ?? 0;
+        }
+
+        return $openingBalance + $yesterdayClosing + $todayProduction;
     }
 
     /**
